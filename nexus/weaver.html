@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<title>NEXUS WEAVER</title>
+<meta name="theme-color" content="#0a0a0f" />
+<meta name="referrer" content="no-referrer" />
+<style>
+:root{--g:#00ff87;--c:#60efff;--p:#ff0080;--y:#ffcc00}
+*{box-sizing:border-box}html,body{margin:0;height:100%;background:#0a0a0f;color:#d7ffe9;font-family:ui-sans-serif,system-ui,sans-serif;overflow:hidden}
+canvas#vx{position:fixed;inset:0;touch-action:none}
+canvas#loss{width:100%;height:72px;display:block;background:#050508;border:1px solid #00ff8733;border-radius:8px}
+.top{position:fixed;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:linear-gradient(#0a0a0fee,#0a0a0f00);pointer-events:none}
+.top *{pointer-events:auto}
+.brand h1{margin:0;font-size:18px;color:#00ff87}
+.brand small{display:block;color:#60efff;font-size:10px}
+.metrics{display:flex;gap:10px;flex-wrap:wrap;font:10px ui-monospace,Menlo,Consolas,monospace;color:#9ad7c0}
+.metrics b{color:#00ff87}
+.dock{position:fixed;z-index:6;right:0;bottom:0;width:min(380px,100%);max-height:46vh;background:#0d1118f2;border-left:1px solid #00ff8733;border-top:1px solid #00ff8733;padding:10px 12px;overflow:auto}
+@media(min-width:860px){.dock{top:58px;max-height:none}}
+.rowbtns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+button{appearance:none;border:0;border-radius:8px;padding:8px 10px;font-weight:800;font-size:11px;cursor:pointer}
+.g{background:#00ff87;color:#04140c}.c{background:#123;color:#60efff;border:1px solid #60efff55}.p{background:#2a0014;color:#ff8ac4;border:1px solid #ff008066}.y{background:#221a00;color:#ffcc00;border:1px solid #ffcc0055}
+textarea{width:100%;min-height:110px;background:#07080c;color:#9be7c8;border:1px solid #00ff8733;border-radius:8px;padding:8px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace}
+pre{white-space:pre-wrap;word-break:break-word;font:11px/1.4 ui-monospace,Menlo,Consolas,monospace;color:#8fdcba;background:#07080c;border:1px solid #00ff8722;border-radius:8px;padding:8px;max-height:120px;overflow:auto}
+.hint{color:#6f9f8c;font-size:11px;margin:6px 0 8px}a.back{color:#60efff;font-size:11px;text-decoration:none}
+</style></head><body>
+<canvas id="vx"></canvas>
+<div class="top"><div class="brand"><div><h1>NEXUS WEAVER</h1><small>NExtended Xperimental USers · DoubleA</small></div></div>
+<div class="metrics"><span>LOSS <b id="mLoss">1.000</b></span><span>TPUT <b id="mTp">0</b></span><span>STAB <b id="mSt">100</b></span><span>PWR <b id="mPw">12</b></span></div></div>
+<aside class="dock"><div class="rowbtns"><a class="back" href="index.html">HUB</a><button class="g" id="hot">HOT RELOAD</button><button class="y" id="train">TRAIN</button><button class="c" id="pause">PAUSE</button><button class="p" id="compile">COMPILE</button></div>
+<div class="hint">Edit the kernel. Reload. Drag nodes. Pinch/wheel zoom. TRAIN updates bus weights from output error.</div>
+<textarea id="src">function customKernel(p, node, t) {
+  if (node.type === "GPU") p.life += 0.15;
+  if (node.type === "MEM") p.u = Math.min(1, p.u + 0.02);
+  if (node.type === "CPU" && (t % 1) > 0.7) p.err *= 0.96;
+  return p;
+}</textarea>
+<canvas id="loss" width="360" height="72"></canvas><pre id="out">payload idle</pre></aside>
+<script>
+(() => {
+  const G="#00ff87", C="#60efff", P="#ff0080", Y="#ffcc00";
+  const vx=document.getElementById("vx"), ctx=vx.getContext("2d");
+  const lx=document.getElementById("loss"), lctx=lx.getContext("2d");
+  const src=document.getElementById("src"), out=document.getElementById("out");
+  let W=0,H=0,dpr=1;
+  function resize(){ dpr=Math.min(2,devicePixelRatio||1); W=vx.width=innerWidth*dpr; H=vx.height=innerHeight*dpr; vx.style.width=innerWidth+"px"; vx.style.height=innerHeight+"px"; }
+  resize(); addEventListener("resize", resize);
+  const cam={x:0,y:0,s:1};
+  const nodes=[{id:"SIG",type:"SIG",x:-220,y:0,r:28,color:C},{id:"CPU",type:"CPU",x:-40,y:-90,r:32,color:G},{id:"GPU",type:"GPU",x:-40,y:90,r:32,color:Y},{id:"MEM",type:"MEM",x:140,y:0,r:30,color:C},{id:"PAY",type:"PAY",x:320,y:0,r:34,color:P}];
+  const edges=[{a:"SIG",b:"CPU",w:.55,lat:.55},{a:"SIG",b:"GPU",w:.45,lat:.70},{a:"CPU",b:"MEM",w:.50,lat:.50},{a:"GPU",b:"MEM",w:.60,lat:.40},{a:"MEM",b:"PAY",w:.35,lat:.65},{a:"CPU",b:"PAY",w:.20,lat:.80}];
+  const byId=id=>nodes.find(n=>n.id===id);
+  const parts=Array.from({length:280},()=>({alive:false,x:0,y:0,u:0,life:1,err:0,ei:0,back:false}));
+  function spawn(toIdx,back){ const p=parts.find(q=>!q.alive); if(!p)return; const e=edges[toIdx],A=byId(e.a); p.alive=true;p.u=back?1:0;p.life=1;p.err=back?.8:.15;p.ei=toIdx;p.back=!!back;p.x=A.x;p.y=A.y; }
+  let kernel=new Function("p","node","t","return p;");
+  function compileKernel(){ try{ const code=src.value.trim(); const fn=new Function("p","node","t","\"use strict\"; "+(code.includes("function")?code+"; return customKernel(p,node,t);":"return ("+code+")(p,node,t);")); const probe=fn({x:0,y:0,u:0,life:1,err:0},nodes[0],0); if(!probe||typeof probe!=="object") throw new Error("kernel must return particle"); kernel=fn; out.textContent="kernel hot"; return true;} catch(err){ out.textContent="kernel reject · "+err.message; return false; } }
+  compileKernel();
+  let t=0,paused=false,training=false,arrivals=0,windowS=1,windowA=0,loss=1,stab=100,pwr=12;
+  const lossHist=Array(64).fill(1);
+  function tick(dt){ t+=dt; if(paused)return; if(Math.random()<(14+(training?10:0))*dt){ spawn(Math.random()*(edges[0].w+edges[1].w)<edges[0].w?0:1,false); windowS++; } for(const p of parts){ if(!p.alive)continue; const e=edges[p.ei],A=byId(e.a),B=byId(e.b); const speed=(.55+e.w*.7)/Math.max(.18,e.lat); p.u+=(p.back?-1:1)*speed*dt; const u=Math.max(0,Math.min(1,p.u)); p.x=A.x+(B.x-A.x)*u; p.y=A.y+(B.y-A.y)*u+Math.sin((t+p.u)*6)*3; p.life-=dt*.12; const near=u>.97?B:(u<.03?A:null); if(near){ try{kernel(p,near,t);}catch(_){} p.err=Math.max(0,Math.min(1,p.err)); p.life=Math.max(.05,Math.min(2,p.life)); } if(!p.back&&p.u>=1){ if(B.type==="PAY"){ arrivals++; windowA++; } const next=edges.map((ed,i)=>({ed,i})).filter(x=>x.ed.a===B.id); if(next.length){ let r=Math.random(),acc=0,sum=next.reduce((s,x)=>s+x.ed.w,0)||1,chosen=next[0].i; for(const n of next){ acc+=n.ed.w/sum; if(r<=acc){ chosen=n.i; break; } } p.ei=chosen; p.u=0; p.x=B.x; p.y=B.y; } else p.alive=false; } else if(p.back&&p.u<=0){ e.w=Math.max(.05,Math.min(.98,e.w+(.08-p.err*.1))); p.alive=false; } if(p.life<=0)p.alive=false; } if(training&&Math.random()<.35) spawn(4,true); if(t%1<dt){ const ratio=windowA/Math.max(1,windowS); loss=loss*.72+(1-ratio)*.28; lossHist.push(loss); if(lossHist.length>64)lossHist.shift(); stab=Math.max(40,100-Math.abs(loss-.25)*80); pwr=8+parts.filter(p=>p.alive).length*.08+(training?6:0); windowS=Math.max(1,Math.floor(windowS*.45)); windowA=Math.floor(windowA*.45); if(training){ for(const e of edges){ if(e.b==="PAY") e.w=Math.max(.08,Math.min(.95,e.w+(.12*(1-loss)-.03))); else e.w=Math.max(.08,Math.min(.95,e.w+(Math.random()-.48)*.02)); } } } }
+  function world(px,py){ return {x:(px*dpr-W/2)/cam.s-cam.x,y:(py*dpr-H/2)/cam.s-cam.y}; }
+  function draw(){ ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle="#0a0a0f"; ctx.fillRect(0,0,W,H); ctx.setTransform(cam.s,0,0,cam.s,W/2+cam.x*cam.s,H/2+cam.y*cam.s); ctx.strokeStyle="#00ff8714"; ctx.lineWidth=1.2; for(let i=-800;i<=800;i+=40){ ctx.beginPath();ctx.moveTo(i,-800);ctx.lineTo(i,800);ctx.stroke(); ctx.beginPath();ctx.moveTo(-800,i);ctx.lineTo(800,i);ctx.stroke(); } for(const e of edges){ const A=byId(e.a),B=byId(e.b); ctx.strokeStyle=e.b==="PAY"?P:G; ctx.globalAlpha=.25+e.w*.65; ctx.lineWidth=1.5+e.w*5; ctx.shadowColor=ctx.strokeStyle; ctx.shadowBlur=12; ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke(); ctx.shadowBlur=0; ctx.globalAlpha=1; ctx.fillStyle="#9ad7c0"; ctx.font="10px ui-monospace,monospace"; ctx.fillText(e.w.toFixed(2),(A.x+B.x)/2+6,(A.y+B.y)/2-6); } for(const p of parts){ if(!p.alive)continue; ctx.beginPath(); ctx.fillStyle=p.back?P:(p.err>.4?Y:G); ctx.shadowColor=ctx.fillStyle; ctx.shadowBlur=10; ctx.arc(p.x,p.y,2.2+p.life*1.6,0,Math.PI*2); ctx.fill(); ctx.shadowBlur=0; } for(const n of nodes){ ctx.beginPath(); ctx.fillStyle="#0a0a0f"; ctx.strokeStyle=n.color; ctx.lineWidth=2.2; ctx.shadowColor=n.color; ctx.shadowBlur=16; ctx.arc(n.x,n.y,n.r,0,Math.PI*2); ctx.fill(); ctx.stroke(); ctx.shadowBlur=0; ctx.fillStyle=n.color; ctx.font="bold 11px ui-sans-serif"; ctx.textAlign="center"; ctx.fillText(n.id,n.x,n.y+4); } lctx.fillStyle="#050508"; lctx.fillRect(0,0,lx.width,lx.height); lctx.strokeStyle=G; lctx.beginPath(); lossHist.forEach((v,i)=>{ const x=i/(lossHist.length-1)*lx.width,y=8+v*(lx.height-16); i?lctx.lineTo(x,y):lctx.moveTo(x,y); }); lctx.stroke(); document.getElementById("mLoss").textContent=loss.toFixed(3); document.getElementById("mTp").textContent=String(arrivals); document.getElementById("mSt").textContent=stab.toFixed(0); document.getElementById("mPw").textContent=pwr.toFixed(1); }
+  let last=performance.now();
+  function loop(now){ const dt=Math.min(.033,(now-last)/1000); last=now; tick(dt); draw(); requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+  let drag=null,pinch=0;
+  function hitNode(w){ return nodes.find(n=>(n.x-w.x)**2+(n.y-w.y)**2<(n.r+8)**2); }
+  vx.addEventListener("pointerdown",e=>{ vx.setPointerCapture(e.pointerId); const w=world(e.clientX,e.clientY); const n=hitNode(w); drag=n?{kind:"node",n,dx:w.x-n.x,dy:w.y-n.y}:{kind:"pan",x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y}; });
+  vx.addEventListener("pointermove",e=>{ if(!drag)return; if(drag.kind==="node"){ const w=world(e.clientX,e.clientY); drag.n.x=w.x-drag.dx; drag.n.y=w.y-drag.dy; } else { cam.x=drag.cx+(e.clientX-drag.x)*dpr/cam.s; cam.y=drag.cy+(e.clientY-drag.y)*dpr/cam.s; } });
+  vx.addEventListener("pointerup",()=>drag=null);
+  vx.addEventListener("wheel",e=>{ e.preventDefault(); cam.s=Math.max(.4,Math.min(2.6,cam.s*(e.deltaY<0?1.08:.92))); },{passive:false});
+  vx.addEventListener("touchstart",e=>{ if(e.touches.length===2){ const a=e.touches[0],b=e.touches[1]; pinch=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY); drag=null; } },{passive:true});
+  vx.addEventListener("touchmove",e=>{ if(e.touches.length===2&&pinch){ const a=e.touches[0],b=e.touches[1]; const d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY); cam.s=Math.max(.4,Math.min(2.6,cam.s*(d/pinch))); pinch=d; } },{passive:true});
+  document.getElementById("hot").onclick=compileKernel;
+  document.getElementById("train").onclick=()=>{ training=!training; document.getElementById("train").textContent=training?"TRAINING":"TRAIN"; };
+  document.getElementById("pause").onclick=()=>{ paused=!paused; document.getElementById("pause").textContent=paused?"RUN":"PAUSE"; };
+  document.getElementById("compile").onclick=()=>{ const payload={brand:"NEXUS",expansion:"NExtended Xperimental USers",operator:"DoubleA @ AntManThePro",loss:+loss.toFixed(4),throughput:arrivals,edges:edges.map(e=>({from:e.a,to:e.b,w:+e.w.toFixed(3),lat:e.lat})),nodes:nodes.map(n=>({id:n.id,type:n.type,x:+n.x.toFixed(1),y:+n.y.toFixed(1)})),kernel:src.value}; const txt=JSON.stringify(payload,null,2); out.textContent=txt; navigator.clipboard&&navigator.clipboard.writeText(txt); };
+  if(/train=1/.test(location.hash)){ training=true; document.getElementById("train").textContent="TRAINING"; }
+})();
+</script></body></html>
