@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#05070a"/>
+  <defs><radialGradient id="g" cx="50%" cy="30%" r="50%"><stop offset="0%" stop-color="#00ff87" stop-opacity=".35"/><stop offset="100%" stop-color="#00ff87" stop-opacity="0"/></radialGradient></defs>
+  <circle cx="512" cy="300" r="280" fill="url(#g)"/>
+  <polygon points="512,120 340,760 684,760" fill="#00ff87" fill-opacity=".22"/>
+  <circle cx="512" cy="120" r="40" fill="none" stroke="#ffcc00" stroke-width="14"/>
+  <g stroke-width="10" stroke-linecap="round">
+    <line x1="250" y1="430" x2="220" y2="390" stroke="#60efff"/>
+    <line x1="300" y1="360" x2="274" y2="316" stroke="#00ff87"/>
+    <line x1="370" y1="300" x2="352" y2="250" stroke="#60efff"/>
+    <line x1="450" y1="260" x2="440" y2="206" stroke="#00ff87"/>
+    <line x1="512" y1="248" x2="512" y2="192" stroke="#60efff"/>
+    <line x1="574" y1="260" x2="584" y2="206" stroke="#00ff87"/>
+    <line x1="654" y1="300" x2="672" y2="250" stroke="#60efff"/>
+    <line x1="724" y1="360" x2="750" y2="316" stroke="#00ff87"/>
+    <line x1="774" y1="430" x2="804" y2="390" stroke="#60efff"/>
+  </g>
+  <polygon points="180,760 844,760 780,860 244,860" fill="#10161e" stroke="#00ff87" stroke-width="6"/>
+  <line x1="180" y1="760" x2="844" y2="760" stroke="#60efff" stroke-width="6"/>
+  <rect x="430" y="620" width="164" height="140" rx="12" fill="#0b1016" stroke="#00ff87" stroke-width="6"/>
+  <rect x="458" y="650" width="108" height="18" fill="#00ff87"/>
+  <rect x="458" y="684" width="72" height="14" fill="#60efff"/>
+</svg>
