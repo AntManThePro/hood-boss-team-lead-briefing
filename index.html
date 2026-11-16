@@ -57,6 +57,10 @@ h1,h2,h3{font-family:Rajdhani,system-ui,sans-serif;letter-spacing:.02em;margin:0
 .lights i:nth-child(3n){background:var(--hot);animation-delay:.6s}
 .lights i:nth-child(4n){background:var(--cyan);animation-delay:.15s}
 @keyframes twinkle{0%,100%{opacity:.25}50%{opacity:1;box-shadow:0 0 6px 1px currentColor}}
+/* One small fireworks burst when BRIEF is tapped */
+.burst{position:fixed;z-index:60;pointer-events:none;width:0;height:0}
+.burst i{position:absolute;left:0;top:0;width:6px;height:6px;border-radius:50%;background:var(--neon);animation:burstFly .9s ease-out forwards}
+@keyframes burstFly{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(.2);opacity:0}}
 /* Big arrow to the MENU button, first visit only */
 .menuhint{position:fixed;left:14px;top:64px;z-index:40;display:none;align-items:flex-start;gap:6px;pointer-events:none}
 .menuhint.show{display:flex}
@@ -382,6 +386,26 @@ a.btn{text-decoration:none;display:inline-flex;align-items:center}
     try{ localStorage.setItem("hb-tl-briefing-menu-seen","1"); }catch(err){}
   }
   function goBrief(){
+    var bb0=document.querySelector('.modes button[data-mode="brief"]');
+    if(bb0){
+      var r=bb0.getBoundingClientRect();
+      var burst=document.createElement("div");
+      burst.className="burst";
+      burst.style.left=(r.left+r.width/2)+"px";
+      burst.style.top=(r.top+r.height/2)+"px";
+      var cols=["#00ff87","#60efff","#ff0080","#ffcc00"];
+      for(var i=0;i<14;i++){
+        var sp=document.createElement("i");
+        var a=(i/14)*Math.PI*2+Math.random()*.5, d=46+Math.random()*40;
+        sp.style.setProperty("--dx", Math.cos(a)*d+"px");
+        sp.style.setProperty("--dy", Math.sin(a)*d+"px");
+        sp.style.background=cols[i%cols.length];
+        sp.style.boxShadow="0 0 8px 2px "+cols[i%cols.length];
+        burst.appendChild(sp);
+      }
+      document.body.appendChild(burst);
+      setTimeout(function(){ burst.remove(); }, 950);
+    }
     state.mode="brief";
     setChapter("open");
     state.flashBrief=true;
